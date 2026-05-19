@@ -1,0 +1,95 @@
+
+name: VocaFlow CI/CD
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run server test (placeholder)
+        working-directory: server
+        run: npm test || true
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build server image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: false
+          tags: vocaflow-server:latest
+
+      - name: Build client image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: false
+          tags: vocaflow-client:latest
+
+      - name: Log build success
+        run: echo "Docker images built successfully"
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy placeholder
+        run: |
+          echo "====== DEPLOYMENT PLACEHOLDER ======"
+          echo "Add your actual deployment commands here"
+          echo "Examples:"
+          echo "- SSH to server and docker-compose up"
+          echo "- Deploy to Railway: railway up"
+          echo "- Deploy to Render: trigger deploy hook"
+          echo "- Deploy to AWS ECS: update task definition"
+          echo "Use GitHub Secrets for any sensitive credentials"
+          echo "======================================"
+

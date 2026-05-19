@@ -1,0 +1,209 @@
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector(schema: "public")]
+}
+
+model Tenant {
+  id                 String           @id @default(uuid())
+  name               String
+  phone              String
+  plan               String
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleCalendarId   String?
+  createdAt          DateTime         @default(now())
+  tenantUsers        TenantUser[]
+  agents             Agent[]
+  leads              Lead[]
+  calls              Call[]
+  appointments       Appointment[]
+  docs               KnowledgeDoc[]
+  embeddings         Embedding[]
+  coachingReports    CoachingReport[]
+  phoneNumbers       PhoneNumber[]
+
+  @@index([id])
+}
+
+model PhoneNumber {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number    String
+  label     String?
+  phoneType String   @default("INBOUND")
+  agentId   String?
+  agent     Agent?   @relation("AgentPhoneNumbers", fields: [agentId], references: [id], onDelete: SetNull)
+  agents    Agent[]  @relation("TransferPhoneNumber")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model User {
+  id           String       @id @default(uuid())
+  name         String?
+  email        String       @unique
+  passwordHash String
+  tenantUsers  TenantUser[]
+  createdAt    DateTime     @default(now())
+}
+
+model TenantUser {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role      Role     @default(TENANT_ADMIN)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+model Agent {
+  id                 String           @id @default(uuid())
+  tenantId           String
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  personality        String
+  tone               String
+  language           String
+  systemPrompt       String
+  voiceId            String
+  agentType          String           @default("RECEPTIONIST")
+  industry           String?
+  knowledgeDocId     String?
+  knowledgeDoc       KnowledgeDoc?    @relation(fields: [knowledgeDocId], references: [id], onDelete: SetNull)
+  transferPhoneId    String?
+  transferPhoneNumber PhoneNumber?    @relation("TransferPhoneNumber", fields: [transferPhoneId], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
+  deletedAt          DateTime?
+  leads              Lead[]
+  calls              Call[]
+  appointments       Appointment[]
+  coachingReports    CoachingReport[]
+  phoneNumbers       PhoneNumber[]    @relation("AgentPhoneNumbers")
+
+  @@index([tenantId])
+}
+
+
+model Lead {
+  id             String        @id @default(uuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentId        String?
+  agent          Agent?        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeDocId String?
+  knowledgeDoc   KnowledgeDoc? @relation(fields: [knowledgeDocId], references: [id], onDelete: SetNull)
+  name           String
+  phone          String
+  email          String?
+  notes          String?
+  status         String        @default("PENDING")
+  score          Int?
+  scoreReason    String?
+  priority       String?
+  createdAt      DateTime      @default(now())
+  deletedAt      DateTime?
+  calls          Call[]
+  appointments   Appointment[]
+
+  @@index([tenantId])
+}
+
+model Call {
+  id             String          @id @default(uuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentId        String?
+  agent          Agent?          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  direction      String
+  status         String
+  transcript     String?
+  sentiment      String?
+  sentimentScore Float?
+  analysis       String?
+  duration       Int?
+  recordingUrl   String?
+  twilioSid      String?         @unique
+  createdAt      DateTime        @default(now())
+  coachingReport CoachingReport?
+
+  @@index([tenantId])
+}
+
+model Appointment {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  agentId         String
+  agent           Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  calendarEventId String?
+  scheduledAt     DateTime
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model KnowledgeDoc {
+  id         String      @id @default(uuid())
+  tenantId   String
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fileName   String
+  content    String
+  createdAt  DateTime    @default(now())
+  deletedAt  DateTime?
+  embeddings Embedding[]
+  leads      Lead[]
+  agents     Agent[]
+
+  @@index([tenantId])
+}
+
+model Embedding {
+  id        String                      @id @default(uuid())
+  docId     String
+  doc       KnowledgeDoc                @relation(fields: [docId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunkText String
+  vector    Unsupported("vector(1536)")
+
+  @@index([tenantId])
+}
+
+
+model CoachingReport {
+  id           String   @id @default(uuid())
+  callId       String   @unique
+  call         Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentId      String?
+  agent        Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  mistakes     Json
+  insights     String
+  weeklyDigest Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([callId])
+}

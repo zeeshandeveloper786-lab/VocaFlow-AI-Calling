@@ -1,0 +1,36 @@
+# Dependency Directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Local Environment Variables and Secrets (CRITICAL SECURITY)
+.env
+.env.local
+.env.*.local
+server/.env
+client/.env
+
+# Build and Output Folders
+dist/
+client/dist/
+build/
+server/dist/
+
+# Logs and Run State
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# IDE and Editor Cache
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS System Files
+.DS_Store
+Thumbs.db
